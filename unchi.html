@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>うんちボタン</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #ffe6f0;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
+      transition: background 0.1s;
+    }
+    body.screaming {
+      animation: bgFlash 0.15s infinite;
+    }
+    @keyframes bgFlash {
+      0% { background: #ff4757; }
+      25% { background: #ffa502; }
+      50% { background: #ff6b81; }
+      75% { background: #eccc68; }
+      100% { background: #ff4757; }
+    }
+    .shake {
+      animation: shake 0.1s infinite;
+    }
+    @keyframes shake {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      25% { transform: translate(-8px, 5px) rotate(-3deg); }
+      50% { transform: translate(8px, -5px) rotate(3deg); }
+      75% { transform: translate(-5px, -8px) rotate(-2deg); }
+      100% { transform: translate(5px, 8px) rotate(2deg); }
+    }
+    canvas {
+      margin-bottom: 30px;
+    }
+    .btn-container {
+      position: relative;
+    }
+    #unchiBtn {
+      width: 250px;
+      height: 250px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #c0392b, #8e1a1a);
+      border: 8px solid #6b0f0f;
+      color: #fff;
+      font-size: 36px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3), inset 0 -6px 12px rgba(0,0,0,0.3);
+      transition: transform 0.1s, box-shadow 0.1s;
+      user-select: none;
+      position: relative;
+      z-index: 2;
+    }
+    #unchiBtn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.4), inset 0 -6px 12px rgba(0,0,0,0.3);
+    }
+    #unchiBtn:active {
+      transform: scale(0.95);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3), inset 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .btn-label {
+      font-size: 14px;
+      display: block;
+      margin-top: 4px;
+      opacity: 0.8;
+    }
+    #screamText {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 20px;
+      font-weight: 900;
+      color: #c0392b;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+      text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff, 4px -4px 0 #fff, -4px 4px 0 #fff;
+    }
+    .scream-active {
+      display: block !important;
+      animation: screamGrow 0.8s ease-out forwards;
+    }
+    @keyframes screamGrow {
+      0% { font-size: 20px; opacity: 1; }
+      50% { font-size: 200px; opacity: 1; }
+      80% { font-size: 220px; opacity: 1; }
+      100% { font-size: 240px; opacity: 0; }
+    }
+    .unchi-emoji {
+      position: fixed;
+      font-size: 50px;
+      pointer-events: none;
+      z-index: 50;
+      animation: unchiFloat 2s ease-out forwards;
+    }
+    @keyframes unchiFloat {
+      0% { opacity: 1; transform: translateY(0) rotate(0deg) scale(0.5); }
+      50% { opacity: 1; transform: translateY(-200px) rotate(180deg) scale(1.5); }
+      100% { opacity: 0; transform: translateY(-400px) rotate(360deg) scale(0.3); }
+    }
+    .counter {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #c0392b;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="face" width="300" height="300"></canvas>
+  <div class="btn-container">
+    <button id="unchiBtn" onclick="scream()">
+      💩<br>押せ！
+      <span class="btn-label">※音量注意</span>
+    </button>
+  </div>
+  <div class="counter">絶叫回数: <span id="count">0</span></div>
+  <div id="screamText">うんち!!!</div>
+
+  <script>
+    const canvas = document.getElementById('face');
+    const ctx = canvas.getContext('2d');
+    let isScreaming = false;
+    let screamCount = 0;
+    let mouthOpen = 0;
+    let animFrame = 0;
+
+    function drawFace(screaming) {
+      ctx.clearRect(0, 0, 300, 300);
+      const cx = 150, cy = 140;
+
+      // Hair behind
+      ctx.fillStyle = '#1a0a00';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 5, 75, 70, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Face
+      ctx.fillStyle = '#fdd0b5';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 5, 60, 58, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eyebrows - raised if screaming
+      const browLift = screaming ? -8 : 0;
+      ctx.strokeStyle = '#1a0a00';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - 38, cy - 18 + browLift);
+      ctx.quadraticCurveTo(cx - 26, cy - 28 + browLift, cx - 14, cy - 18 + browLift);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + 14, cy - 18 + browLift);
+      ctx.quadraticCurveTo(cx + 26, cy - 28 + browLift, cx + 38, cy - 18 + browLift);
+      ctx.stroke();
+
+      // Eyes
+      const eyeScale = screaming ? 1.4 : 1;
+      // Left
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(cx - 24, cy - 4, 16 * eyeScale, 14 * eyeScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2c1810';
+      ctx.beginPath();
+      ctx.ellipse(cx - 24, cy - 2, 10 * eyeScale, 10 * eyeScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(cx - 24, cy, 6 * eyeScale, 6 * eyeScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Shine
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(cx - 20, cy - 6, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(cx + 24, cy - 4, 16 * eyeScale, 14 * eyeScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2c1810';
+      ctx.beginPath();
+      ctx.ellipse(cx + 24, cy - 2, 10 * eyeScale, 10 * eyeScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(cx + 24, cy, 6 * eyeScale, 6 * eyeScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(cx + 28, cy - 6, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eyelashes
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1.5;
+      [-42, -36, -30, -24, -18, -12].forEach(ox => {
+        ctx.beginPath();
+        ctx.moveTo(cx + ox, cy - 16 * eyeScale);
+        ctx.lineTo(cx + ox - 1, cy - 22 * eyeScale);
+        ctx.stroke();
+      });
+      [12, 18, 24, 30, 36, 42].forEach(ox => {
+        ctx.beginPath();
+        ctx.moveTo(cx + ox, cy - 16 * eyeScale);
+        ctx.lineTo(cx + ox + 1, cy - 22 * eyeScale);
+        ctx.stroke();
+      });
+
+      // Nose
+      ctx.fillStyle = '#eab89c';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + 6);
+      ctx.lineTo(cx - 6, cy + 16);
+      ctx.lineTo(cx + 6, cy + 16);
+      ctx.closePath();
+      ctx.fill();
+
+      // Mouth
+      if (screaming) {
+        // Wide open screaming mouth
+        const mo = mouthOpen;
+        ctx.fillStyle = '#1a0a00';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 30, 25 * mo, 22 * mo, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Inside mouth
+        ctx.fillStyle = '#c0392b';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 30, 20 * mo, 17 * mo, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Tongue
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 38, 12 * mo, 8 * mo, 0, 0, Math.PI);
+        ctx.fill();
+        // Teeth
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(cx - 14 * mo, cy + 20, 6 * mo, 5 * mo);
+        ctx.fillRect(cx - 6 * mo, cy + 20, 6 * mo, 5 * mo);
+        ctx.fillRect(cx + 2 * mo, cy + 20, 6 * mo, 5 * mo);
+        ctx.fillRect(cx + 10 * mo, cy + 20, 6 * mo, 5 * mo);
+
+        // Sweat drops
+        ctx.fillStyle = '#74b9ff';
+        ctx.beginPath();
+        ctx.ellipse(cx - 55, cy - 10 + Math.sin(animFrame * 0.3) * 5, 4, 6, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cx + 58, cy + 5 + Math.sin(animFrame * 0.3 + 1) * 5, 3, 5, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Stress lines
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 2;
+        [[-50, -35], [50, -35], [-55, -15], [55, -15]].forEach(([ox, oy]) => {
+          ctx.beginPath();
+          ctx.moveTo(cx + ox, cy + oy);
+          ctx.lineTo(cx + ox + (ox > 0 ? 8 : -8), cy + oy - 4);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx + ox, cy + oy + 5);
+          ctx.lineTo(cx + ox + (ox > 0 ? 6 : -6), cy + oy + 1);
+          ctx.stroke();
+        });
+      } else {
+        // Normal cute smile
+        ctx.strokeStyle = '#c0392b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 16, cy + 26);
+        ctx.quadraticCurveTo(cx, cy + 38, cx + 16, cy + 26);
+        ctx.stroke();
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.moveTo(cx - 12, cy + 27);
+        ctx.quadraticCurveTo(cx, cy + 35, cx + 12, cy + 27);
+        ctx.quadraticCurveTo(cx, cy + 30, cx - 12, cy + 27);
+        ctx.fill();
+      }
+
+      // Blush
+      ctx.fillStyle = screaming ? 'rgba(255, 80, 80, 0.5)' : 'rgba(255, 130, 130, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(cx - 42, cy + 12, 12, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx + 42, cy + 12, 12, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hair
+      ctx.fillStyle = '#1a0a00';
+      // Top
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 40, 72, 38, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+      // Bangs
+      ctx.beginPath();
+      ctx.moveTo(cx - 68, cy - 18);
+      ctx.quadraticCurveTo(cx - 52, cy - 8, cx - 38, cy - 12);
+      ctx.quadraticCurveTo(cx - 24, cy - 4, cx - 8, cy - 14);
+      ctx.quadraticCurveTo(cx + 8, cy - 4, cx + 22, cy - 12);
+      ctx.quadraticCurveTo(cx + 38, cy - 4, cx + 52, cy - 14);
+      ctx.quadraticCurveTo(cx + 66, cy - 20, cx + 68, cy - 18);
+      ctx.lineTo(cx + 72, cy - 48);
+      ctx.lineTo(cx - 72, cy - 48);
+      ctx.closePath();
+      ctx.fill();
+      // Side hair
+      ctx.beginPath();
+      ctx.moveTo(cx - 66, cy - 18);
+      ctx.quadraticCurveTo(cx - 80, cy + 30, cx - 60, cy + 85);
+      ctx.lineTo(cx - 50, cy + 75);
+      ctx.quadraticCurveTo(cx - 68, cy + 20, cx - 58, cy - 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + 66, cy - 18);
+      ctx.quadraticCurveTo(cx + 80, cy + 30, cx + 60, cy + 85);
+      ctx.lineTo(cx + 50, cy + 75);
+      ctx.quadraticCurveTo(cx + 68, cy + 20, cx + 58, cy - 8);
+      ctx.closePath();
+      ctx.fill();
+
+      // Hands doing peace near face when screaming
+      if (screaming) {
+        const handShake = Math.sin(animFrame * 0.8) * 5;
+        drawBigPeaceHand(cx - 80, cy + 20 + handShake, -1);
+        drawBigPeaceHand(cx + 80, cy + 20 - handShake, 1);
+      } else {
+        drawBigPeaceHand(cx - 75, cy + 50, -1);
+        drawBigPeaceHand(cx + 75, cy + 50, 1);
+      }
+    }
+
+    function drawBigPeaceHand(x, y, dir) {
+      ctx.fillStyle = '#fdd0b5';
+      ctx.beginPath();
+      ctx.arc(x, y, 12, 0, Math.PI * 2);
+      ctx.fill();
+      // Fingers
+      ctx.strokeStyle = '#fdd0b5';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x - 5 * dir, y - 5);
+      ctx.lineTo(x - 10 * dir, y - 28);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x + 5 * dir, y - 5);
+      ctx.lineTo(x + 10 * dir, y - 28);
+      ctx.stroke();
+      // Red nails
+      ctx.fillStyle = '#e74c3c';
+      ctx.beginPath();
+      ctx.arc(x - 10 * dir, y - 30, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + 10 * dir, y - 30, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    let screamTimeout = null;
+
+    function scream() {
+      if (isScreaming) return;
+      isScreaming = true;
+      screamCount++;
+      document.getElementById('count').textContent = screamCount;
+
+      // Screen effects
+      document.body.classList.add('screaming');
+      canvas.classList.add('shake');
+
+      // Scream text
+      const st = document.getElementById('screamText');
+      st.classList.remove('scream-active');
+      void st.offsetWidth;
+      st.classList.add('scream-active');
+      st.style.display = 'block';
+
+      // Spawn emoji rain
+      for (let i = 0; i < 20; i++) {
+        setTimeout(() => spawnUnchiEmoji(), i * 80);
+      }
+
+      // Mouth animation
+      mouthOpen = 0;
+      const openMouth = setInterval(() => {
+        mouthOpen = Math.min(mouthOpen + 0.15, 1);
+      }, 16);
+
+      // Speech synthesis scream
+      speakScream();
+
+      // Animate face
+      const faceAnim = setInterval(() => { animFrame++; }, 30);
+
+      screamTimeout = setTimeout(() => {
+        clearInterval(openMouth);
+        clearInterval(faceAnim);
+        isScreaming = false;
+        mouthOpen = 0;
+        document.body.classList.remove('screaming');
+        canvas.classList.remove('shake');
+        st.classList.remove('scream-active');
+        st.style.display = 'none';
+      }, 2000);
+    }
+
+    function speakScream() {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+
+      const utter = new SpeechSynthesisUtterance('うんちーーーー！！！');
+      utter.lang = 'ja-JP';
+      utter.rate = 1.2;
+      utter.pitch = 2;
+      utter.volume = 1;
+
+      // Try to find Japanese voice
+      const voices = window.speechSynthesis.getVoices();
+      const jaVoice = voices.find(v => v.lang.startsWith('ja'));
+      if (jaVoice) utter.voice = jaVoice;
+
+      window.speechSynthesis.speak(utter);
+    }
+
+    // Preload voices
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+
+    function spawnUnchiEmoji() {
+      const el = document.createElement('div');
+      el.className = 'unchi-emoji';
+      el.textContent = '💩';
+      el.style.left = Math.random() * window.innerWidth + 'px';
+      el.style.top = (Math.random() * window.innerHeight * 0.6 + window.innerHeight * 0.3) + 'px';
+      el.style.fontSize = (30 + Math.random() * 50) + 'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2000);
+    }
+
+    // Render loop
+    function render() {
+      drawFace(isScreaming);
+      requestAnimationFrame(render);
+    }
+    render();
+  </script>
+</body>
+</html>
